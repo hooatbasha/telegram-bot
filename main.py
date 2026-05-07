@@ -6,9 +6,22 @@ EL FER3OON BOT - بوت الفرعون للتداول مع جدول رسائل
 import json
 import os
 import asyncio
+import threading
 from datetime import datetime
+from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
+
+# ===== Flask للـ uptime =====
+flask_app = Flask(__name__)
+
+@flask_app.route('/')
+def home():
+    return "EL FER3OON BOT is running! 👑"
+
+def run_flask():
+    port = int(os.environ.get("PORT", 8080))
+    flask_app.run(host="0.0.0.0", port=port)
 
 # ===== إعدادات البوت =====
 BOT_TOKEN = "8750815249:AAHtWLBgCg1rWXINj-HJCHt-AJeroGgcFWg"
@@ -21,7 +34,6 @@ VIDEO_2_FILE_ID = "BAACAgQAAxkBAANDafzhEvESXfDc4MXEyqYtKUlBym4AAukgAAL0I-hTbD9qL
 PHOTO_3_FILE_ID = "AgACAgQAAxkBAAM_afzgw-1UxXKQca1RI2oZgQjX6DMAArQQaxv0I-hT1W_dgvVMW_UBAAMCAAN5AAM7BA"
 
 # ===== نصوص الرسائل =====
-
 MSG_1_AR = """🔥 مع تطبيقنا للتداول، الموضوع صار أسهل بكتير!
 إشارات قوية ودقيقة على منصة Quotex 📈⚡
 
@@ -34,9 +46,9 @@ MSG_1_EN = """🔥 With our trading app, it's never been easier!
 Powerful and accurate signals on Quotex 📈⚡
 
 Track trades, achieve great results, and withdraw your profits easily 💸
-Many people started with us with simple steps and today earn a decent daily income 🚀
+Many people started with us and today earn a decent daily income 🚀
 
-If you want to start right and enter the market with confidence, try the app and join the winners now 👑"""
+Join the winners now 👑"""
 
 MSG_2_AR = """🚀 تطبيق الفرعون للتداول صار جاهز! 👑
 كل اللي تحتاجه بإيدك: إشارات دقيقة، تنبيهات سريعة، وتحليل يساعدك تدخل بأفضل وقت على Quotex 📊⚡
@@ -44,9 +56,9 @@ MSG_2_AR = """🚀 تطبيق الفرعون للتداول صار جاهز! �
 ابدأ بخطوات صح، تابع الإشارات، وشوف الفرق بنفسك 💰🔥"""
 
 MSG_2_EN = """🚀 EL FER3OON Trading App is ready! 👑
-Everything you need in your hands: accurate signals, fast alerts, and analysis to help you enter at the best time on Quotex 📊⚡
-The app is designed to make trading simpler and clearer even if you're a beginner 💡
-Start with the right steps, follow the signals, and see the difference yourself 💰🔥"""
+Accurate signals, fast alerts, and analysis to help you enter at the best time on Quotex 📊⚡
+Designed to make trading simpler even if you're a beginner 💡
+Start right, follow the signals, and see the difference 💰🔥"""
 
 MSG_3_AR = """🎁 سجل من خلالنا واحصل على بونص ترحيبي 100% من قيمة أول إيداع على Quotex 💸🔥
 يعني لو أودعت 100$ رح يصير رصيدك 200$ مباشرة 🚀
@@ -62,27 +74,27 @@ Register here 👇
 https://broker-qx.pro/sign-up/?lid=643973
 Use bonus code 🎯
 SPECIAL100
-A great opportunity to start trading with more capital 👑"""
+Start trading with more capital 👑"""
 
 WELCOME_AR = """هلا {name}! 👋 معك الفرعون 👑
 كتير مبسوط إني شايفك هون 🙏
 
-أنا عندي خبرة في التداول، وحابب أشاركك كل شي تعلمته بأسلوب بسيط وواضح، لحتى تفهم بسهولة وتوصل للنتيجة الصح ✅
+أنا عندي خبرة في التداول، وحابب أشاركك كل شي تعلمته بأسلوب بسيط وواضح ✅
 
 بنهاية المطاف رح تقدر تحقق دخل ثابت إن شاء الله 💰
 
-كل اللي لازم تعمله إنك تشترك بقناتي المجانية عالتلغرام 📢
-اضغط على زر "انضم للقناة" تحت، وأنا بانتظارك هنيك ⭐"""
+اشترك بقناتي المجانية عالتلغرام 📢
+اضغط على زر "انضم للقناة" تحت ⭐"""
 
 WELCOME_EN = """Hello {name}! 👋 This is EL FER3OON 👑
 So glad you're here! 🙏
 
-I have trading experience and I want to share everything I've learned in a simple, clear way so you can easily understand and achieve real results ✅
+I have trading experience and I want to share everything in a simple, clear way ✅
 
-By the end, you'll be able to generate consistent income, God willing 💰
+You'll be able to generate consistent income, God willing 💰
 
-All you need to do is subscribe to my FREE Telegram channel 📢
-Click "Join Channel" below, and I'll be waiting for you there ⭐"""
+Subscribe to my FREE Telegram channel 📢
+Click "Join Channel" below ⭐"""
 
 # ===== إدارة المستخدمين =====
 def load_users():
@@ -112,7 +124,6 @@ def get_keyboard(lang="ar"):
 
 # ===== إرسال الرسائل المجدولة =====
 async def send_scheduled_messages(app, chat_id, lang):
-    # رسالة 1 - بعد 3 ساعات
     await asyncio.sleep(3 * 3600)
     try:
         text = MSG_1_AR if lang == "ar" else MSG_1_EN
@@ -120,7 +131,6 @@ async def send_scheduled_messages(app, chat_id, lang):
     except Exception as e:
         print(f"خطأ رسالة 1: {e}")
 
-    # رسالة 2 - بعد 3 ساعات تانية
     await asyncio.sleep(3 * 3600)
     try:
         text = MSG_2_AR if lang == "ar" else MSG_2_EN
@@ -128,7 +138,6 @@ async def send_scheduled_messages(app, chat_id, lang):
     except Exception as e:
         print(f"خطأ رسالة 2: {e}")
 
-    # رسالة 3 - بعد 3 ساعات تالتة
     await asyncio.sleep(3 * 3600)
     try:
         text = MSG_3_AR if lang == "ar" else MSG_3_EN
@@ -136,9 +145,8 @@ async def send_scheduled_messages(app, chat_id, lang):
     except Exception as e:
         print(f"خطأ رسالة 3: {e}")
 
-    # تكرار كل يوم للأبد
     while True:
-        await asyncio.sleep(15 * 3600)  # الباقي من اليوم
+        await asyncio.sleep(15 * 3600)
         try:
             text = MSG_1_AR if lang == "ar" else MSG_1_EN
             await app.bot.send_video(chat_id=chat_id, video=VIDEO_1_FILE_ID, caption=text, reply_markup=get_keyboard(lang))
@@ -221,6 +229,10 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ===== تشغيل البوت =====
 def main():
+    # شغّل Flask في thread منفصل
+    flask_thread = threading.Thread(target=run_flask, daemon=True)
+    flask_thread.start()
+
     app = Application.builder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
