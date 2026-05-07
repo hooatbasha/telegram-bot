@@ -152,14 +152,12 @@ async def send_scheduled_messages(app, chat_id, lang):
             await app.bot.send_video(chat_id=chat_id, video=VIDEO_1_FILE_ID, caption=text, reply_markup=get_keyboard(lang))
         except Exception as e:
             print(f"خطأ تكرار 1: {e}")
-
         await asyncio.sleep(3 * 3600)
         try:
             text = MSG_2_AR if lang == "ar" else MSG_2_EN
             await app.bot.send_video(chat_id=chat_id, video=VIDEO_2_FILE_ID, caption=text, reply_markup=get_keyboard(lang))
         except Exception as e:
             print(f"خطأ تكرار 2: {e}")
-
         await asyncio.sleep(3 * 3600)
         try:
             text = MSG_3_AR if lang == "ar" else MSG_3_EN
@@ -191,11 +189,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def get_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.video:
         fid = update.message.video.file_id
-        print(f"VIDEO FILE_ID: {fid}")
         await update.message.reply_text(f"VIDEO_ID: {fid}")
     elif update.message.photo:
         fid = update.message.photo[-1].file_id
-        print(f"PHOTO FILE_ID: {fid}")
         await update.message.reply_text(f"PHOTO_ID: {fid}")
 
 
@@ -209,13 +205,19 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if query.data == "lang_en":
             users.setdefault(uid, {})["lang"] = "en"
             save_users(users)
-            await query.edit_message_reply_markup(reply_markup=get_keyboard("en"))
+            # تغيير نص الرسالة والأزرار للإنجليزي
+            user_name = query.from_user.first_name or "friend"
+            new_text = WELCOME_EN.format(name=user_name)
+            await query.edit_message_text(new_text, reply_markup=get_keyboard("en"))
         elif query.data == "lang_ar":
             users.setdefault(uid, {})["lang"] = "ar"
             save_users(users)
-            await query.edit_message_reply_markup(reply_markup=get_keyboard("ar"))
-    except Exception:
-        pass
+            # تغيير نص الرسالة والأزرار للعربي
+            user_name = query.from_user.first_name or "صديقي"
+            new_text = WELCOME_AR.format(name=user_name)
+            await query.edit_message_text(new_text, reply_markup=get_keyboard("ar"))
+    except Exception as e:
+        print(f"خطأ callback: {e}")
 
 
 async def channel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -229,7 +231,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ===== تشغيل البوت =====
 def main():
-    # شغّل Flask في thread منفصل
     flask_thread = threading.Thread(target=run_flask, daemon=True)
     flask_thread.start()
 
