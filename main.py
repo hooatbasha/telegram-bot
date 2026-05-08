@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-EL FER3OON BOT - بوت الفرعون للتداول مع جدول رسائل و Broadcast
+EL FER3OON BOT - بوت الفرعون للتداول مع Supabase
 """
 
-import json
 import os
 import asyncio
 import threading
+import requests
 from datetime import datetime
 from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -26,8 +26,37 @@ def run_flask():
 # ===== إعدادات البوت =====
 BOT_TOKEN = "8750815249:AAHtWLBgCg1rWXINj-HJCHt-AJeroGgcFWg"
 CHANNEL_LINK = "https://t.me/+wm-XT1rWsHhkNjJk"
-USERS_FILE = "users.json"
-ADMIN_ID = 6656665257  # ID الأدمن
+ADMIN_ID = 6656665257
+
+# ===== Supabase =====
+SUPABASE_URL = "https://asckmtsheshyzpqkgcbj.supabase.co"
+SUPABASE_KEY = "sb_secret_dNfH3h3BhU-pcXQkU0cRHA_4VF3bsoI"
+HEADERS = {
+    "apikey": SUPABASE_KEY,
+    "Authorization": f"Bearer {SUPABASE_KEY}",
+    "Content-Type": "application/json"
+}
+
+def db_get_user(chat_id):
+    r = requests.get(f"{SUPABASE_URL}/rest/v1/users?chat_id=eq.{chat_id}", headers=HEADERS)
+    data = r.json()
+    return data[0] if data else None
+
+def db_add_user(chat_id, lang="ar"):
+    requests.post(f"{SUPABASE_URL}/rest/v1/users", headers=HEADERS, json={
+        "chat_id": chat_id, "lang": lang, "joined": datetime.now().isoformat()
+    })
+
+def db_update_lang(chat_id, lang):
+    requests.patch(f"{SUPABASE_URL}/rest/v1/users?chat_id=eq.{chat_id}", headers=HEADERS, json={"lang": lang})
+
+def db_get_all_users():
+    r = requests.get(f"{SUPABASE_URL}/rest/v1/users?select=chat_id,lang", headers=HEADERS)
+    return r.json()
+
+def db_count_users():
+    r = requests.get(f"{SUPABASE_URL}/rest/v1/users?select=count", headers={**HEADERS, "Prefer": "count=exact"})
+    return r.headers.get("content-range", "0").split("/")[-1]
 
 # ===== file_id للميديا =====
 VIDEO_1_FILE_ID = "BAACAgQAAxkBAAM2afzeTK0QaLQGYdnUt0W9_US1KYYAAuIgAAL0I-hTZ1qfFnAM1PA7BA"
@@ -97,17 +126,6 @@ You'll be able to generate consistent income, God willing 💰
 Subscribe to my FREE Telegram channel 📢
 Click "Join Channel" below ⭐"""
 
-# ===== إدارة المستخدمين =====
-def load_users():
-    if os.path.exists(USERS_FILE):
-        with open(USERS_FILE, "r") as f:
-            return json.load(f)
-    return {}
-
-def save_users(users):
-    with open(USERS_FILE, "w") as f:
-        json.dump(users, f)
-
 # ===== كيبورد =====
 def get_keyboard(lang="ar"):
     if lang == "ar":
@@ -169,12 +187,12 @@ async def send_scheduled_messages(app, chat_id, lang):
 # ===== Broadcast =====
 async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
-        await update.message.reply_text("❌ مش مسموح لك بهذا الأمر")
+        await update.message.reply_text("❌ مش مسموح")
         return
 
-    users = load_users()
+    users = db_get_all_users()
     if not users:
-        await update.message.reply_text("❌ مفيش مستخدمين لحد دلوقتي")
+        await update.message.reply_text("❌ مفيش مستخدمين")
         return
 
     msg = update.message
@@ -183,32 +201,34 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(f"📤 جاري الإرسال لـ {len(users)} مستخدم...")
 
-    for uid in users:
+    for user in users:
+        uid = user["chat_id"]
+        lang = user.get("lang", "ar")
         try:
             if msg.reply_to_message:
                 rep = msg.reply_to_message
                 if rep.text:
-                    await context.bot.send_message(chat_id=int(uid), text=rep.text)
+                    await context.bot.send_message(chat_id=uid, text=rep.text)
                 elif rep.photo:
-                    await context.bot.send_photo(chat_id=int(uid), photo=rep.photo[-1].file_id, caption=rep.caption or "")
+                    await context.bot.send_photo(chat_id=uid, photo=rep.photo[-1].file_id, caption=rep.caption or "")
                 elif rep.video:
-                    await context.bot.send_video(chat_id=int(uid), video=rep.video.file_id, caption=rep.caption or "")
+                    await context.bot.send_video(chat_id=uid, video=rep.video.file_id, caption=rep.caption or "")
             elif context.args:
                 text = " ".join(context.args)
-                await context.bot.send_message(chat_id=int(uid), text=text)
+                await context.bot.send_message(chat_id=uid, text=text)
             success += 1
             await asyncio.sleep(0.05)
         except Exception:
             failed += 1
 
-    await update.message.reply_text(f"✅ تم الإرسال!\nنجح: {success}\nفشل: {failed}")
+    await update.message.reply_text(f"✅ تم!\nنجح: {success}\nفشل: {failed}")
 
 
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
-    users = load_users()
-    await update.message.reply_text(f"📊 إحصائيات البوت:\n👥 عدد المستخدمين: {len(users)}")
+    count = db_count_users()
+    await update.message.reply_text(f"📊 إحصائيات البوت:\n👥 عدد المستخدمين: {count}")
 
 
 # ===== أوامر البوت =====
@@ -217,14 +237,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     first_name = user.first_name or "صديقي"
     chat_id = user.id
 
-    users = load_users()
-    is_new = str(chat_id) not in users
+    existing = db_get_user(chat_id)
+    is_new = existing is None
 
     if is_new:
-        users[str(chat_id)] = {"lang": "ar", "joined": str(datetime.now())}
-        save_users(users)
+        db_add_user(chat_id, "ar")
+        lang = "ar"
+    else:
+        lang = existing.get("lang", "ar")
 
-    lang = users[str(chat_id)].get("lang", "ar")
     msg = WELCOME_AR.format(name=first_name) if lang == "ar" else WELCOME_EN.format(name=first_name)
     await update.message.reply_text(msg, reply_markup=get_keyboard(lang))
 
@@ -236,28 +257,23 @@ async def get_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
     if update.message.video:
-        fid = update.message.video.file_id
-        await update.message.reply_text(f"VIDEO_ID: {fid}")
+        await update.message.reply_text(f"VIDEO_ID: {update.message.video.file_id}")
     elif update.message.photo:
-        fid = update.message.photo[-1].file_id
-        await update.message.reply_text(f"PHOTO_ID: {fid}")
+        await update.message.reply_text(f"PHOTO_ID: {update.message.photo[-1].file_id}")
 
 
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    users = load_users()
-    uid = str(query.from_user.id)
+    uid = query.from_user.id
     user_name = query.from_user.first_name or "صديقي"
 
     try:
         if query.data == "lang_en":
-            users.setdefault(uid, {})["lang"] = "en"
-            save_users(users)
+            db_update_lang(uid, "en")
             await query.edit_message_text(WELCOME_EN.format(name=user_name), reply_markup=get_keyboard("en"))
         elif query.data == "lang_ar":
-            users.setdefault(uid, {})["lang"] = "ar"
-            save_users(users)
+            db_update_lang(uid, "ar")
             await query.edit_message_text(WELCOME_AR.format(name=user_name), reply_markup=get_keyboard("ar"))
     except Exception as e:
         print(f"خطأ callback: {e}")
