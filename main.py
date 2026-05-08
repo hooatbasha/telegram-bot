@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-EL FER3OON BOT - بوت الفرعون للتداول مع جدول رسائل
+EL FER3OON BOT - بوت الفرعون للتداول مع جدول رسائل و Broadcast
 """
 
 import json
@@ -27,6 +27,7 @@ def run_flask():
 BOT_TOKEN = "8750815249:AAHtWLBgCg1rWXINj-HJCHt-AJeroGgcFWg"
 CHANNEL_LINK = "https://t.me/+wm-XT1rWsHhkNjJk"
 USERS_FILE = "users.json"
+ADMIN_ID = 6656665257  # ID الأدمن
 
 # ===== file_id للميديا =====
 VIDEO_1_FILE_ID = "BAACAgQAAxkBAAM2afzeTK0QaLQGYdnUt0W9_US1KYYAAuIgAAL0I-hTZ1qfFnAM1PA7BA"
@@ -165,6 +166,51 @@ async def send_scheduled_messages(app, chat_id, lang):
         except Exception as e:
             print(f"خطأ تكرار 3: {e}")
 
+# ===== Broadcast =====
+async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        await update.message.reply_text("❌ مش مسموح لك بهذا الأمر")
+        return
+
+    users = load_users()
+    if not users:
+        await update.message.reply_text("❌ مفيش مستخدمين لحد دلوقتي")
+        return
+
+    msg = update.message
+    success = 0
+    failed = 0
+
+    await update.message.reply_text(f"📤 جاري الإرسال لـ {len(users)} مستخدم...")
+
+    for uid in users:
+        try:
+            if msg.reply_to_message:
+                rep = msg.reply_to_message
+                if rep.text:
+                    await context.bot.send_message(chat_id=int(uid), text=rep.text)
+                elif rep.photo:
+                    await context.bot.send_photo(chat_id=int(uid), photo=rep.photo[-1].file_id, caption=rep.caption or "")
+                elif rep.video:
+                    await context.bot.send_video(chat_id=int(uid), video=rep.video.file_id, caption=rep.caption or "")
+            elif context.args:
+                text = " ".join(context.args)
+                await context.bot.send_message(chat_id=int(uid), text=text)
+            success += 1
+            await asyncio.sleep(0.05)
+        except Exception:
+            failed += 1
+
+    await update.message.reply_text(f"✅ تم الإرسال!\nنجح: {success}\nفشل: {failed}")
+
+
+async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return
+    users = load_users()
+    await update.message.reply_text(f"📊 إحصائيات البوت:\n👥 عدد المستخدمين: {len(users)}")
+
+
 # ===== أوامر البوت =====
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -187,6 +233,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def get_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return
     if update.message.video:
         fid = update.message.video.file_id
         await update.message.reply_text(f"VIDEO_ID: {fid}")
@@ -200,22 +248,17 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     users = load_users()
     uid = str(query.from_user.id)
+    user_name = query.from_user.first_name or "صديقي"
 
     try:
         if query.data == "lang_en":
             users.setdefault(uid, {})["lang"] = "en"
             save_users(users)
-            # تغيير نص الرسالة والأزرار للإنجليزي
-            user_name = query.from_user.first_name or "friend"
-            new_text = WELCOME_EN.format(name=user_name)
-            await query.edit_message_text(new_text, reply_markup=get_keyboard("en"))
+            await query.edit_message_text(WELCOME_EN.format(name=user_name), reply_markup=get_keyboard("en"))
         elif query.data == "lang_ar":
             users.setdefault(uid, {})["lang"] = "ar"
             save_users(users)
-            # تغيير نص الرسالة والأزرار للعربي
-            user_name = query.from_user.first_name or "صديقي"
-            new_text = WELCOME_AR.format(name=user_name)
-            await query.edit_message_text(new_text, reply_markup=get_keyboard("ar"))
+            await query.edit_message_text(WELCOME_AR.format(name=user_name), reply_markup=get_keyboard("ar"))
     except Exception as e:
         print(f"خطأ callback: {e}")
 
@@ -226,7 +269,7 @@ async def channel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("📋 الأوامر:\n/start - رسالة الترحيب\n/channel - رابط القناة\n/help - المساعدة")
+    await update.message.reply_text("📋 الأوامر:\n/start - رسالة الترحيب\n/channel - رابط القناة\n/broadcast نص - إرسال للكل\n/stats - إحصائيات\n/help - المساعدة")
 
 
 # ===== تشغيل البوت =====
@@ -239,6 +282,8 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("channel", channel_command))
+    app.add_handler(CommandHandler("broadcast", broadcast_command))
+    app.add_handler(CommandHandler("stats", stats_command))
     app.add_handler(CallbackQueryHandler(button_callback))
     app.add_handler(MessageHandler(filters.VIDEO | filters.PHOTO, get_file_id))
 
