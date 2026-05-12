@@ -24,7 +24,7 @@ def run_flask():
     flask_app.run(host="0.0.0.0", port=port)
 
 # ===== إعدادات البوت =====
-BOT_TOKEN = "8750815249:AAHtWLBgCg1rWXINj-HJCHt-AJeroGgcFWg"
+BOT_TOKEN = "8750815249:AAFks3d9Tr-0j5j_azNWioKg-bO7Lgzc4Iw"
 CHANNEL_LINK = "https://t.me/+wm-XT1rWsHhkNjJk"
 ADMIN_ID = 6656665257
 
