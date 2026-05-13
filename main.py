@@ -40,9 +40,15 @@ def get_headers():
     }
 
 def db_get_user(chat_id):
-    r = requests.get(f"{SUPABASE_URL}/users?chat_id=eq.{chat_id}", headers=get_headers())
-    data = r.json()
-    return data[0] if data else None
+    try:
+        r = requests.get(f"{SUPABASE_URL}/users?chat_id=eq.{chat_id}", headers=get_headers())
+        data = r.json()
+        if isinstance(data, list):
+            return data[0] if data else None
+        return None
+    except Exception as e:
+        print(f"خطأ db_get_user: {e}")
+        return None
 
 def db_add_user(chat_id, lang="ar"):
     requests.post(f"{SUPABASE_URL}/users", headers=get_headers(), json={
