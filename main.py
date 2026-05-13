@@ -59,9 +59,9 @@ def db_count_users():
     return r.headers.get("content-range", "0").split("/")[-1]
 
 # ===== file_id للميديا =====
-VIDEO_1_FILE_ID = "BAACAgQAAxkBAAM2afzeTK0QaLQGYdnUt0W9_US1KYYAAuIgAAL0I-hTZ1qfFnAM1PA7BA"
-VIDEO_2_FILE_ID = "BAACAgQAAxkBAANDafzhEvESXfDc4MXEyqYtKUlBym4AAukgAAL0I-hTbD9qLCbHqxE7BA"
-PHOTO_3_FILE_ID = "AgACAgQAAxkBAAM_afzgw-1UxXKQca1RI2oZgQjX6DMAArQQaxv0I-hT1W_dgvVMW_UBAAMCAAN5AAM7BA"
+VIDEO_1_FILE_ID = "BAACAgQAAxkBAAIBHmoEFadUfgTNZ7JPCdk0y0th76inAAKeHQACMzEhUP-2thUR4Vl9OwQ"
+VIDEO_2_FILE_ID = "BAACAgQAAxkBAAIBImoEFpiIel7mwvA61lIBewh9SyVxAAKgHQACMzEhULC81AL8x_61OwQ"
+PHOTO_3_FILE_ID = "AgACAgQAAxkBAAIBIGoEFl2DX1gbgo2wknnRd_L09NF-AAJtDmsbMzEhUCucgA-OxVwyAQADAgADeQADOwQ"
 
 # ===== نصوص الرسائل =====
 MSG_1_AR = """🔥 مع تطبيقنا للتداول، الموضوع صار أسهل بكتير!
